@@ -5,13 +5,14 @@ LabeledInstruction = tuple[str, str]
 class TopLevelProgram(ast.NodeVisitor):
     """We supports assignments and input/print calls"""
     
-    def __init__(self, entry_point) -> None:
+    def __init__(self, entry_point, st) -> None:
         super().__init__()
         self.__instructions = list()
         self.__record_instruction('NOP1', label=entry_point)
         self.__should_save = True
         self.__current_variable = None
         self.__elem_id = 0
+        self.st = st
 
     def finalize(self):
         self.__instructions.append((None, '.END'))
@@ -23,7 +24,7 @@ class TopLevelProgram(ast.NodeVisitor):
 
     def visit_Assign(self, node):
         # remembering the name of the target
-        self.__current_variable = node.targets[0].id
+        self.__current_variable = self.st.getVal(node.targets[0].id)
         # visiting the left part, now knowing where to store the result
 
         if not isinstance(node.value, ast.Constant):
@@ -38,7 +39,7 @@ class TopLevelProgram(ast.NodeVisitor):
         self.__record_instruction(f'LDWA {node.value},i')
     
     def visit_Name(self, node):
-        self.__record_instruction(f'LDWA {node.id},d')
+        self.__record_instruction(f'LDWA {self.st.getVal(node.id)},d')
 
     def visit_BinOp(self, node):
 
@@ -61,7 +62,7 @@ class TopLevelProgram(ast.NodeVisitor):
                 self.__should_save = False # DECI already save the value in memory
             case 'print':
                 # We are only supporting integers for now
-                self.__record_instruction(f'DECO {node.args[0].id},d')
+                self.__record_instruction(f'DECO {self.st.getVal(node.args[0].id)},d')
             case _:
                 raise ValueError(f'Unsupported function call: { node.func.id}')
 
@@ -111,10 +112,10 @@ class TopLevelProgram(ast.NodeVisitor):
 
         # If node passed in is a name and global constant
         elif (isinstance(node, ast.Name) and node.id[0] == "_" and node.id.isupper()):
-            self.__record_instruction(f'{instruction} {node.id},i', label)
+            self.__record_instruction(f'{instruction} {self.st.getVal(node.id)},i', label)
 
         else:
-            self.__record_instruction(f'{instruction} {node.id},d', label)
+            self.__record_instruction(f'{instruction} {self.st.getVal(node.id)},d', label)
 
     def __identify(self):
         result = self.__elem_id

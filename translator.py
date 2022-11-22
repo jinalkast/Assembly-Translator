@@ -4,6 +4,7 @@ from visitors.GlobalVariables import GlobalVariableExtraction
 from visitors.TopLevelProgram import TopLevelProgram
 from generators.StaticMemoryAllocation import StaticMemoryAllocation
 from generators.EntryPoint import EntryPoint
+from generators.symbolTable import SymbolTable
 
 def main():
     input_file, print_ast = process_cli()
@@ -25,13 +26,17 @@ def process_cli():
 
 def process(input_file, root_node):
     print(f'; Translating {input_file}')
-    extractor = GlobalVariableExtraction()
+    
+    # Create symbol table 
+    st = SymbolTable()
+
+    extractor = GlobalVariableExtraction(st)
     extractor.visit(root_node)
     memory_alloc = StaticMemoryAllocation(extractor.results)
     print('; Branching to top level (tl) instructions')
     print('\t\tBR tl')
     memory_alloc.generate()
-    top_level = TopLevelProgram('tl')
+    top_level = TopLevelProgram('tl',st)
     top_level.visit(root_node)
     ep = EntryPoint(top_level.finalize())
     ep.generate() 
