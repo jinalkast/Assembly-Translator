@@ -25,12 +25,14 @@ class TopLevelProgram(ast.NodeVisitor):
         # remembering the name of the target
         self.__current_variable = node.targets[0].id
         # visiting the left part, now knowing where to store the result
-        self.visit(node.value)
-        if self.__should_save:
-            self.__record_instruction(f'STWA {self.__current_variable},d')
-        else:
-            self.__should_save = True
-        self.__current_variable = None
+
+        if not isinstance(node.value, ast.Constant):
+            self.visit(node.value)
+            if self.__should_save:
+                self.__record_instruction(f'STWA {self.__current_variable},d')
+            else:
+                self.__should_save = True
+            self.__current_variable = None
 
     def visit_Constant(self, node):
         self.__record_instruction(f'LDWA {node.value},i')
@@ -39,6 +41,7 @@ class TopLevelProgram(ast.NodeVisitor):
         self.__record_instruction(f'LDWA {node.id},d')
 
     def visit_BinOp(self, node):
+
         self.__access_memory(node.left, 'LDWA')
         if isinstance(node.op, ast.Add):
             self.__access_memory(node.right, 'ADDA')
@@ -105,6 +108,11 @@ class TopLevelProgram(ast.NodeVisitor):
     def __access_memory(self, node, instruction, label = None):
         if isinstance(node, ast.Constant):
             self.__record_instruction(f'{instruction} {node.value},i', label)
+
+        # If node passed in is a name and global constant
+        elif (isinstance(node, ast.Name) and node.id[0] == "_" and node.id.isupper()):
+            self.__record_instruction(f'{instruction} {node.id},i', label)
+
         else:
             self.__record_instruction(f'{instruction} {node.id},d', label)
 

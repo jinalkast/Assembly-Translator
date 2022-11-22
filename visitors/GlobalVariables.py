@@ -7,12 +7,18 @@ class GlobalVariableExtraction(ast.NodeVisitor):
     
     def __init__(self) -> None:
         super().__init__()
-        self.results = set()
+        self.results = dict()
 
     def visit_Assign(self, node):
         if len(node.targets) != 1:
             raise ValueError("Only unary assignments are supported")
-        self.results.add(node.targets[0].id)
+        
+        # if node value == constant pass in value as well
+        if isinstance(node.value, ast.Constant):
+            self.results[node.targets[0].id] = node.value.value
+        
+        elif node.targets[0].id not in self.results:
+                self.results[node.targets[0].id] = None
 
 
     def visit_FunctionDef(self, node):
