@@ -18,6 +18,28 @@ class GlobalVariableExtraction(ast.NodeVisitor):
             self.results[node.targets[0].id] = node.value.value
         
         elif node.targets[0].id not in self.results:
+            if isinstance(node.value, ast.BinOp):
+                left = None
+                right = None 
+
+                if isinstance(node.value.left, ast.Name):
+                    if node.value.left.id in self.results:
+                        left = self.results[node.value.left.id]
+                else:
+                    left = node.value.left.value
+
+                if isinstance(node.value.right, ast.Name):
+                    if node.value.right.id in self.results:
+                        right = self.results[node.value.right.id]
+                else:
+                    right = node.value.right.value
+
+                if left != None and right != None:
+                    if isinstance(node.value.op, ast.Add):
+                        self.results[node.targets[0].id] = left + right
+                    else:
+                        self.results[node.targets[0].id] = left - right
+            else:
                 self.results[node.targets[0].id] = None
 
 
