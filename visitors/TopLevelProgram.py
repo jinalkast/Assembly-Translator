@@ -27,13 +27,12 @@ class TopLevelProgram(ast.NodeVisitor):
         self.__current_variable = self.st.getVal(node.targets[0].id)
         # visiting the left part, now knowing where to store the result
 
-        if not isinstance(node.value, ast.Constant):
-            self.visit(node.value)
-            if self.__should_save:
-                self.__record_instruction(f'STWA {self.__current_variable},d')
-            else:
-                self.__should_save = True
-            self.__current_variable = None
+        self.visit(node.value)
+        if self.__should_save:
+            self.__record_instruction(f'STWA {self.__current_variable},d')
+        else:
+            self.__should_save = True
+        self.__current_variable = None
 
     def visit_Constant(self, node):
         self.__record_instruction(f'LDWA {node.value},i')
@@ -63,6 +62,9 @@ class TopLevelProgram(ast.NodeVisitor):
             case 'print':
                 # We are only supporting integers for now
                 self.__record_instruction(f'DECO {self.st.getVal(node.args[0].id)},d')
+                self.__record_instruction("LDBA '\\n',i")
+                self.__record_instruction('STBA charOut,d')
+
             case _:
                 raise ValueError(f'Unsupported function call: { node.func.id}')
 
@@ -77,6 +79,8 @@ class TopLevelProgram(ast.NodeVisitor):
             ast.LtE: 'BRGT', # '<=' in the code means we branch if '>' 
             ast.Gt:  'BRLE', # '>'  in the code means we branch if '<='
             ast.GtE: 'BRLT', # '>=' in the code means we branch if '<'
+            ast.NotEq: 'BREQ', # '!=' in the code means we branch if '=='
+            ast.Eq: 'BRNE', # '==' in the code means we branch if '!='
         }
         # left part can only be a variable
         self.__access_memory(node.test.left, 'LDWA', label = f'test_{loop_id}')
@@ -90,6 +94,56 @@ class TopLevelProgram(ast.NodeVisitor):
         self.__record_instruction(f'BR test_{loop_id}')
         # Sentinel marker for the end of the loop
         self.__record_instruction(f'NOP1', label = f'end_l_{loop_id}')
+    
+    ####
+    ## VISIT while loops
+    ####
+
+    def visit_If(self, node):
+        cond_id = self.__identify()
+        inverted = {
+            ast.Lt:  'BRGE', # '<'  in the code means we branch if '>=' 
+            ast.LtE: 'BRGT', # '<=' in the code means we branch if '>' 
+            ast.Gt:  'BRLE', # '>'  in the code means we branch if '<='
+            ast.GtE: 'BRLT', # '>=' in the code means we branch if '<'
+            ast.NotEq: 'BREQ', # '!=' in the code means we branch if '=='
+            ast.Eq: 'BRNE', # '==' in the code means we branch if '!='
+        }
+        # left part can only be a variable
+        self.__access_memory(node.test.left, 'LDWA', label = f'if_{cond_id}')
+        # right part can only be a variable
+        self.__access_memory(node.test.comparators[0], 'CPWA')
+        # Branching is condition is not true (thus, inverted)
+
+        # if orelse contains another if, we branch to check its condition rather than ending
+        if type(node.orelse[0]) == ast.If:
+            self.__record_instruction(f'{inverted[type(node.test.ops[0])]} if_{cond_id+1}')
+        
+        # if orelse doesnt contain an if, but has a body it is the else statement and will 
+        # branch to it if cond isnt met 
+        elif node.orelse != []:
+            self.__record_instruction(f'{inverted[type(node.test.ops[0])]} else_{cond_id}')
+
+        # if orelse is empty, we can branch to end if
+        else:
+            self.__record_instruction(f'{inverted[type(node.test.ops[0])]} end_if_{cond_id}')
+       
+        # Visiting the body of the loop
+        for contents in node.body:
+            self.visit(contents)
+
+        # After completing contents of body, branch to end if
+        self.__record_instruction(f'BR end_if_{cond_id}')
+
+        #Create else reference if needed
+        if type(node.orelse[0]) != ast.If:
+            self.__record_instruction("NOP1", label = f'else_{cond_id}')
+
+        for contents in node.orelse:
+            self.visit(contents)
+
+        # Sentinel marker for the end of the loop
+        self.__record_instruction(f'NOP1', label = f'end_if_{cond_id}')
 
     ####
     ## Not handling function calls 
