@@ -1,6 +1,7 @@
 import ast
 
 LabeledInstruction = tuple[str, str]
+first_assign = {}
 
 class TopLevelProgram(ast.NodeVisitor):
     """We supports assignments and input/print calls"""
@@ -12,6 +13,7 @@ class TopLevelProgram(ast.NodeVisitor):
         self.__should_save = True
         self.__current_variable = None
         self.__elem_id = 0
+        self.__in_loop = False
         self.st = st
 
     def finalize(self):
@@ -26,13 +28,15 @@ class TopLevelProgram(ast.NodeVisitor):
         # remembering the name of the target
         self.__current_variable = self.st.getVal(node.targets[0].id)
         # visiting the left part, now knowing where to store the result
-
-        self.visit(node.value)
-        if self.__should_save:
-            self.__record_instruction(f'STWA {self.__current_variable},d')
+        if self.__in_loop or self.__current_variable in first_assign or not isinstance(node.value, ast.Constant):
+            self.visit(node.value)
+            if self.__should_save:
+                self.__record_instruction(f'STWA {self.__current_variable},d')
+            else:
+                self.__should_save = True
+            self.__current_variable = None
         else:
-            self.__should_save = True
-        self.__current_variable = None
+            first_assign[self.__current_variable] = True
 
     def visit_Constant(self, node):
         self.__record_instruction(f'LDWA {node.value},i')
@@ -89,14 +93,16 @@ class TopLevelProgram(ast.NodeVisitor):
         # Branching is condition is not true (thus, inverted)
         self.__record_instruction(f'{inverted[type(node.test.ops[0])]} end_l_{loop_id}')
         # Visiting the body of the loop
+        self.__in_loop = True
         for contents in node.body:
             self.visit(contents)
+        self.__in_loop = False
         self.__record_instruction(f'BR test_{loop_id}')
         # Sentinel marker for the end of the loop
         self.__record_instruction(f'NOP1', label = f'end_l_{loop_id}')
     
     ####
-    ## VISIT while loops
+    ## Handling If statements
     ####
 
     def visit_If(self, node):
