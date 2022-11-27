@@ -90,7 +90,7 @@ class TopLevelProgram(ast.NodeVisitor):
         self.__access_memory(node.test.left, 'LDWA', label = f'test_{loop_id}')
         # right part can only be a variable
         self.__access_memory(node.test.comparators[0], 'CPWA')
-        # Branching is condition is not true (thus, inverted)
+        # Branching is ifition is not true (thus, inverted)
         self.__record_instruction(f'{inverted[type(node.test.ops[0])]} end_l_{loop_id}')
         # Visiting the body of the loop
         self.__in_loop = True
@@ -106,7 +106,7 @@ class TopLevelProgram(ast.NodeVisitor):
     ####
 
     def visit_If(self, node):
-        cond_id = self.__identify()
+        if_id = self.__identify()
         inverted = {
             ast.Lt:  'BRGE', # '<'  in the code means we branch if '>=' 
             ast.LtE: 'BRGT', # '<=' in the code means we branch if '>' 
@@ -116,40 +116,40 @@ class TopLevelProgram(ast.NodeVisitor):
             ast.Eq: 'BRNE', # '==' in the code means we branch if '!='
         }
         # left part can only be a variable
-        self.__access_memory(node.test.left, 'LDWA', label = f'if_{cond_id}')
+        self.__access_memory(node.test.left, 'LDWA', label = f'if_{if_id}')
         # right part can only be a variable
         self.__access_memory(node.test.comparators[0], 'CPWA')
-        # Branching is condition is not true (thus, inverted)
+        # Branching if condition is not true (thus, inverted)
 
-        # if orelse contains another if, we branch to check its condition rather than ending
+        # if orelse contains another if, we branch to check its ifition rather than ending
         if len(node.orelse) and type(node.orelse[0]) == ast.If:
-            self.__record_instruction(f'{inverted[type(node.test.ops[0])]} if_{cond_id+1}')
+            self.__record_instruction(f'{inverted[type(node.test.ops[0])]} if_{if_id+1}')
         
         # if orelse doesnt contain an if, but has a body it is the else statement and will 
-        # branch to it if cond isnt met 
+        # branch to it if condition isnt met 
         elif node.orelse != []:
-            self.__record_instruction(f'{inverted[type(node.test.ops[0])]} else_{cond_id}')
+            self.__record_instruction(f'{inverted[type(node.test.ops[0])]} else_{if_id}')
 
         # if orelse is empty, we can branch to end if
         else:
-            self.__record_instruction(f'{inverted[type(node.test.ops[0])]} end_if_{cond_id}')
+            self.__record_instruction(f'{inverted[type(node.test.ops[0])]} end_if_{if_id}')
        
         # Visiting the body of the loop
         for contents in node.body:
             self.visit(contents)
 
         # After completing contents of body, branch to end if
-        self.__record_instruction(f'BR end_if_{cond_id}')
+        self.__record_instruction(f'BR end_if_{if_id}')
 
         #Create else reference if needed
         if len(node.orelse) and type(node.orelse[0]) != ast.If:
-            self.__record_instruction("NOP1", label = f'else_{cond_id}')
+            self.__record_instruction("NOP1", label = f'else_{if_id}')
 
         for contents in node.orelse:
             self.visit(contents)
 
         # Sentinel marker for the end of the loop
-        self.__record_instruction(f'NOP1', label = f'end_if_{cond_id}')
+        self.__record_instruction(f'NOP1', label = f'end_if_{if_id}')
 
     ####
     ## Not handling function calls 
