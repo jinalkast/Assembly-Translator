@@ -1,7 +1,7 @@
 import ast
 
 LabeledInstruction = tuple[str, str]
-first_assign = {}
+assigned = {}
 
 class TopLevelProgram(ast.NodeVisitor):
     """We supports assignments and input/print calls"""
@@ -28,7 +28,7 @@ class TopLevelProgram(ast.NodeVisitor):
         # remembering the name of the target
         self.__current_variable = self.st.getVal(node.targets[0].id)
         # visiting the left part, now knowing where to store the result
-        if self.__in_loop or self.__current_variable in first_assign or not isinstance(node.value, ast.Constant):
+        if self.__in_loop or self.__current_variable in assigned or not isinstance(node.value, ast.Constant):
             self.visit(node.value)
             if self.__should_save:
                 self.__record_instruction(f'STWA {self.__current_variable},d')
@@ -36,7 +36,7 @@ class TopLevelProgram(ast.NodeVisitor):
                 self.__should_save = True
             self.__current_variable = None
         else:
-            first_assign[self.__current_variable] = True
+            assigned[self.__current_variable] = True
 
     def visit_Constant(self, node):
         self.__record_instruction(f'LDWA {node.value},i')
