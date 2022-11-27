@@ -122,7 +122,7 @@ class TopLevelProgram(ast.NodeVisitor):
         # Branching is condition is not true (thus, inverted)
 
         # if orelse contains another if, we branch to check its condition rather than ending
-        if type(node.orelse[0]) == ast.If:
+        if len(node.orelse) and type(node.orelse[0]) == ast.If:
             self.__record_instruction(f'{inverted[type(node.test.ops[0])]} if_{cond_id+1}')
         
         # if orelse doesnt contain an if, but has a body it is the else statement and will 
@@ -142,7 +142,7 @@ class TopLevelProgram(ast.NodeVisitor):
         self.__record_instruction(f'BR end_if_{cond_id}')
 
         #Create else reference if needed
-        if type(node.orelse[0]) != ast.If:
+        if len(node.orelse) and type(node.orelse[0]) != ast.If:
             self.__record_instruction("NOP1", label = f'else_{cond_id}')
 
         for contents in node.orelse:
