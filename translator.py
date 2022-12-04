@@ -2,10 +2,10 @@ import argparse
 import ast
 from visitors.GlobalVariables import GlobalVariableExtraction
 from visitors.TopLevelProgram import TopLevelProgram
+from visitors.Functions import Functions
 from generators.StaticMemoryAllocation import StaticMemoryAllocation
 from generators.EntryPoint import EntryPoint
 from generators.symbolTable import SymbolTable
-
 def main():
     input_file, print_ast = process_cli()
     with open(input_file) as f:
@@ -36,6 +36,9 @@ def process(input_file, root_node):
     print('; Branching to top level (tl) instructions')
     print('\t\tBR tl')
     memory_alloc.generate()
+    #functions = Functions(st, extractor.results)
+    #functions.visit(root_node)
+    # Insert functions
     top_level = TopLevelProgram('tl',st)
     top_level.visit(root_node)
     ep = EntryPoint(top_level.finalize())
