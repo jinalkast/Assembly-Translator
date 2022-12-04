@@ -2,12 +2,12 @@ import ast
 
 class GlobalVariableExtraction(ast.NodeVisitor):
     """ 
-        We extract all the left hand side of the global (top-level) assignments
+        We extract all of the details related to global (top-level) assignments
     """
     
     def __init__(self, st) -> None:
         super().__init__()
-        self.results = dict()
+        self.results = {}
         self.st = st
 
     def visit_Assign(self, node):

@@ -14,6 +14,7 @@ class TopLevelProgram(ast.NodeVisitor):
         self.__current_variable = None
         self.__elem_id = 0
         self.__in_loop = False
+        self.__in_assign = False
         self.st = st
 
     def finalize(self):
@@ -29,7 +30,9 @@ class TopLevelProgram(ast.NodeVisitor):
         self.__current_variable = self.st.getVal(node.targets[0].id)
         # visiting the left part, now knowing where to store the result
         if self.__in_loop or self.__current_variable in assigned or not isinstance(node.value, ast.Constant):
+            self.__in_assign = True
             self.visit(node.value)
+            self.__in_assign = False
             if self.__should_save:
                 self.__record_instruction(f'STWA {self.__current_variable},d')
             else:
@@ -70,7 +73,24 @@ class TopLevelProgram(ast.NodeVisitor):
                 self.__record_instruction('STBA charOut,d')
 
             case _:
-                raise ValueError(f'Unsupported function call: { node.func.id}')
+                # function with input
+                if self.__in_assign:
+                    self.__record_instruction(f'SUBSP 2,i \t ; for retVal')
+
+                if len(node.args) > 0:
+                    counter = 0
+                    self.__record_instruction(f'SUBSP {len(node.args) * 2},i')
+                    for arg in node.args:
+                        self.__access_memory(arg, 'LDWA')
+                        self.__record_instruction(f'STWA {counter},s')
+                        counter += 2
+                self.__record_instruction(f'CALL {node.func.id}')
+                    
+                if len(node.args) > 0: self.__record_instruction(f'ADDSP {len(node.args) * 2},i')
+                
+                if self.__in_assign:
+                    self.__record_instruction(f'LDWA 0,s')
+                    self.__record_instruction(f'ADDSP 2,i')
 
     ####
     ## Handling While loops (only variable OP variable)
@@ -121,7 +141,7 @@ class TopLevelProgram(ast.NodeVisitor):
         self.__access_memory(node.test.comparators[0], 'CPWA')
         # Branching if condition is not true (thus, inverted)
 
-        # if orelse contains another if, we branch to check its ifition rather than ending
+        # if orelse contains another if, we branch to check its condition rather than ending
         if len(node.orelse) and type(node.orelse[0]) == ast.If:
             self.__record_instruction(f'{inverted[type(node.test.ops[0])]} if_{if_id+1}')
         
