@@ -1,4 +1,5 @@
-from .TopLevelProgram import TopLevelProgram
+from .LocalVariables import LocalVariableExtraction
+from generators.LocalMemoryAllocation import LocalMemoryAllocation
 import ast
 
 LabeledInstruction = tuple[str, str]
@@ -14,6 +15,7 @@ class Functions(ast.NodeVisitor):
           self.__elem_id = 0
           self.__in_loop = False
           self.__global_vars = global_vars
+          self.__func_count = 0
           self.st = st
 
      """We supports assignments and input/print calls"""
@@ -25,18 +27,17 @@ class Functions(ast.NodeVisitor):
      def visit_FunctionDef(self, node):
           # define memory
           self.__local_vars = {}
-          self.allocate_function_memory(node)
           # Record entry point
           # subtract stack pointer
-
+          # allocate memory for local variables, parameters and return value
+          local_extractor = LocalVariableExtraction(self.st)
+          local_extractor.visit(node)
+          local_memory_alloc = LocalMemoryAllocation(local_extractor.results, self.st)
+          local_memory_alloc.generate(self.__func_count)
           # Visiting the body of the function
           for contents in node.body:
                self.visit(contents)
-
-     
-
-          print(node.name)
-
+          self.__func_count += 1        
      def visit_Return(self,node):
           self.__instructions.append((None, f'LDWA {node.value.id},s'))
           self.__instructions.append((None, f'STWA retVal,s'))
@@ -44,14 +45,3 @@ class Functions(ast.NodeVisitor):
           self.__instructions.append((None, f'RET'))
 
      
-     def allocate_function_memory(self, node):
-          for content in node.body:
-               if type(content) == ast.Assign:
-                    self.st.loadVal(content.targets[0].id)
-                    if content.targets[0].id not in self.st:
-                         self.__local_vars[content.targets[0].id] = None
-                    else:
-                         # is global constant 
-                         pass
-                        # if self.__global_vars[self.st.getVal(content.targets[0].id)] != None:
-                              

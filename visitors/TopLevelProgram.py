@@ -27,7 +27,7 @@ class TopLevelProgram(ast.NodeVisitor):
 
     def visit_Assign(self, node):
         # remembering the name of the target
-        self.__current_variable = self.st.getVal(node.targets[0].id)
+        self.__current_variable = self.st.getName(node.targets[0].id)
         # visiting the left part, now knowing where to store the result
         if self.__in_loop or self.__current_variable in assigned or not isinstance(node.value, ast.Constant):
             self.__in_assign = True
@@ -45,7 +45,7 @@ class TopLevelProgram(ast.NodeVisitor):
         self.__record_instruction(f'LDWA {node.value},i')
     
     def visit_Name(self, node):
-        self.__record_instruction(f'LDWA {self.st.getVal(node.id)},d')
+        self.__record_instruction(f'LDWA {self.st.getName(node.id)},d')
 
     def visit_BinOp(self, node):
 
@@ -68,7 +68,7 @@ class TopLevelProgram(ast.NodeVisitor):
                 self.__should_save = False # DECI already save the value in memory
             case 'print':
                 # We are only supporting integers for now
-                self.__record_instruction(f'DECO {self.st.getVal(node.args[0].id)},d')
+                self.__record_instruction(f'DECO {self.st.getName(node.args[0].id)},d')
                 self.__record_instruction("LDBA '\\n',i")
                 self.__record_instruction('STBA charOut,d')
 
@@ -192,10 +192,10 @@ class TopLevelProgram(ast.NodeVisitor):
 
         # If node passed in is a name and global constant
         elif (isinstance(node, ast.Name) and node.id[0] == "_" and node.id.isupper()):
-            self.__record_instruction(f'{instruction} {self.st.getVal(node.id)},i', label)
+            self.__record_instruction(f'{instruction} {self.st.getName(node.id)},i', label)
 
         else:
-            self.__record_instruction(f'{instruction} {self.st.getVal(node.id)},d', label)
+            self.__record_instruction(f'{instruction} {self.st.getName(node.id)},d', label)
 
     def __identify(self):
         result = self.__elem_id
