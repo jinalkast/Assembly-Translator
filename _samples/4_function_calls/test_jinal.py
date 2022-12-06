@@ -3,7 +3,6 @@ def my_func(a,b):
     b = 4
     c = 12
     d = 13
-    return a
 
 def my_funcs():
     a = 4

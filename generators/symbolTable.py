@@ -34,6 +34,9 @@ class SymbolTable():
          return variableName
    
    def getLocalName(self, variableName: str, funcID: int):
+      if variableName[0] == "_" and variableName.isupper():
+            return self.getName(variableName)
+
       if variableName in self.map:
          if len(self.map[variableName].name) >= 7:
             return f'{self.map[variableName].name[0:6]}_{funcID}'

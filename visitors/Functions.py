@@ -1,27 +1,27 @@
 from .LocalVariables import LocalVariableExtraction
 from generators.LocalMemoryAllocation import LocalMemoryAllocation
+from generators.FunctionGenerator import FunctionGenerator
 import ast
 
 LabeledInstruction = tuple[str, str]
 assigned = {}
 
 class Functions(ast.NodeVisitor):
-     def __init__(self, st, global_vars) -> None:
+     def __init__(self, st) -> None:
           super().__init__()
           self.__instructions = list()
           self.__should_save = True
-          self.__local_vars = {}
           self.__current_variable = None
           self.__elem_id = 0
-          self.__in_loop = False
-          self.__global_vars = global_vars
+          self.__num_of_params = 0
+          self.__num_of_local_vars = 0
           self.__func_count = 0
           self.st = st
+          self.__in_func = False
 
      """We supports assignments and input/print calls"""
     
      def finalize(self):
-          self.__instructions.append((None, '.END'))
           return self.__instructions
 
      def printHeader(self, local_extractor, node):
@@ -37,73 +37,92 @@ class Functions(ast.NodeVisitor):
                print(function_def + ' function definition')
 
      def visit_FunctionDef(self, node):
-          print(f'; Defining Function: {node.name}')
           # define memory
-          self.__local_vars = {}
+          self.__in_func = True
           local_extractor = LocalVariableExtraction(self.st)
           local_extractor.visit(node)
-          local_memory_alloc = LocalMemoryAllocation(local_extractor.results, self.st)
+          self.__num_of_local_vars = len(local_extractor.local_vars)
+          self.__num_of_local_vars = len(local_extractor.parameters)
+          local_memory_alloc = LocalMemoryAllocation(local_extractor.local_vars, local_extractor.parameters, self.st)
           self.printHeader(local_extractor, node)
           local_memory_alloc.generate(self.__func_count)
 
           # Visiting the body of the function
+          self.__record_instruction(f'SUBSP {(self.__num_of_local_vars)*2},i', label = f'{node.name}')
           for contents in node.body:
-               print(contents)
                self.visit(contents)
 
+         
+          if not local_extractor.returnExists:
+               self.__record_instruction(f'ADDSP {(self.__num_of_local_vars)*2},i')
+               self.__record_instruction(f'RET')
+          fg = FunctionGenerator(self.finalize())
+          fg.generate()
+          
+          # Reset stuff for next function
           self.__func_count += 1      
+          self.__in_func = False 
+          self.__instructions = list()
 
      def visit_Return(self,node):
-          self.__instructions.append((None, f'LDWA {node.value.id},s'))
-          self.__instructions.append((None, f'STWA retVal,s'))
-          self.__instructions.append((None, f'ADDSP 2,i'))
+          if not self.__in_func: return
+          if isinstance(node.value,ast.Constant):
+               self.__instructions.append((None, f'LDWA {node.value.value},i'))
+          else:
+               self.__instructions.append((None, f'LDWA {self.st.getLocalName(node.value.id, self.__func_count)},s'))
+
+          self.__instructions.append((None, f'STWA {self.__num_of_local_vars * 2 + self.__num_of_params * 2 + 4},s'))
+          self.__instructions.append((None, f'ADDSP {(self.__num_of_local_vars)*2},i'))
           self.__instructions.append((None, f'RET'))
 
      def visit_Assign(self, node):
-          print("Ass")
+          if not self.__in_func: return
           # remembering the name of the target
-          # self.__current_variable = self.st.getName(node.targets[0].id)
+          self.__current_variable = self.st.getLocalName(node.targets[0].id,self.__func_count)
           # # visiting the left part, now knowing where to store the result
-          if self.__in_loop or self.__current_variable in assigned or not isinstance(node.value, ast.Constant):
-               self.__in_assign = True
-               self.visit(node.value)
-               self.__in_assign = False
-               if self.__should_save:
-                    self.__record_instruction(f'STWA {self.__current_variable},d')
-               else:
-                    self.__should_save = True
-               self.__current_variable = None
+          self.__in_assign = True
+          self.visit(node.value)
+          self.__in_assign = False
+          if self.__should_save:
+               self.__record_instruction(f'STWA {self.__current_variable},s')
           else:
-               assigned[self.__current_variable] = True
+               self.__should_save = True
+          self.__current_variable = None
+
+          # else:
+          #      assigned[self.__current_variable] = True
 
      def visit_Constant(self, node):
-        self.__record_instruction(f'LDWA {node.value},i')
+          if not self.__in_func: return
+          self.__record_instruction(f'LDWA {node.value},i')
     
      def visit_Name(self, node):
-        self.__record_instruction(f'LDWA {self.st.getName(node.id)},d')
+          if not self.__in_func: return
+          self.__record_instruction(f'LDWA {self.st.getLocalName(node.id,self.__func_count)},i')
 
      def visit_BinOp(self, node):
-
-        self.__access_memory(node.left, 'LDWA')
-        if isinstance(node.op, ast.Add):
-            self.__access_memory(node.right, 'ADDA')
-        elif isinstance(node.op, ast.Sub):
-            self.__access_memory(node.right, 'SUBA')
-        else:
-            raise ValueError(f'Unsupported binary operator: {node.op}')
+          if not self.__in_func: return
+          self.__access_memory(node.left, 'LDWA')
+          if isinstance(node.op, ast.Add):
+               self.__access_memory(node.right, 'ADDA')
+          elif isinstance(node.op, ast.Sub):
+               self.__access_memory(node.right, 'SUBA')
+          else:
+               raise ValueError(f'Unsupported binary operator: {node.op}')
 
      def visit_Call(self, node):
+        if not self.__in_func: return
         match node.func.id:
             case 'int': 
                 # Let's visit whatever is casted into an int
                 self.visit(node.args[0])
             case 'input':
                 # We are only supporting integers for now
-                self.__record_instruction(f'DECI {self.__current_variable},d')
+                self.__record_instruction(f'DECI {self.__current_variable},s')
                 self.__should_save = False # DECI already save the value in memory
             case 'print':
                 # We are only supporting integers for now
-                self.__record_instruction(f'DECO {self.st.getName(node.args[0].id)},d')
+                self.__record_instruction(f'DECO {self.st.getLocalName(node.args[0].id,self.__func_count)},s')
                 self.__record_instruction("LDBA '\\n',i")
                 self.__record_instruction('STBA charOut,d')
 
@@ -132,6 +151,7 @@ class Functions(ast.NodeVisitor):
     ####
 
      def visit_While(self, node):
+        if not self.__in_func: return
         loop_id = self.__identify()
         inverted = {
             ast.Lt:  'BRGE', # '<'  in the code means we branch if '>=' 
@@ -148,10 +168,8 @@ class Functions(ast.NodeVisitor):
         # Branching is ifition is not true (thus, inverted)
         self.__record_instruction(f'{inverted[type(node.test.ops[0])]} end_l_{loop_id}')
         # Visiting the body of the loop
-        self.__in_loop = True
         for contents in node.body:
             self.visit(contents)
-        self.__in_loop = False
         self.__record_instruction(f'BR test_{loop_id}')
         # Sentinel marker for the end of the loop
         self.__record_instruction(f'NOP1', label = f'end_l_{loop_id}')
@@ -161,6 +179,7 @@ class Functions(ast.NodeVisitor):
     ####
 
      def visit_If(self, node):
+        if not self.__in_func: return
         if_id = self.__identify()
         inverted = {
             ast.Lt:  'BRGE', # '<'  in the code means we branch if '>=' 
@@ -219,10 +238,10 @@ class Functions(ast.NodeVisitor):
 
         # If node passed in is a name and global constant
         elif (isinstance(node, ast.Name) and node.id[0] == "_" and node.id.isupper()):
-            self.__record_instruction(f'{instruction} {self.st.getName(node.id)},i', label)
+            self.__record_instruction(f'{instruction} {self.st.getLocalName(node.id,self.__func_count)},i', label)
 
         else:
-            self.__record_instruction(f'{instruction} {self.st.getName(node.id)},d', label)
+            self.__record_instruction(f'{instruction} {self.st.getLocalName(node.id,self.__func_count)},s', label)
 
      def __identify(self):
         result = self.__elem_id

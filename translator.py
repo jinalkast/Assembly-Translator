@@ -8,6 +8,8 @@ from generators.StaticMemoryAllocation import StaticMemoryAllocation
 from generators.LocalMemoryAllocation import LocalMemoryAllocation
 from generators.EntryPoint import EntryPoint
 from generators.symbolTable import SymbolTable
+from generators.FunctionGenerator import FunctionGenerator
+
 def main():
     input_file, print_ast = process_cli()
     with open(input_file) as f:
@@ -38,12 +40,10 @@ def process(input_file, root_node):
     print('; Branching to top level (tl) instructions')
     print('\t\tBR tl')
     memory_alloc.generate()
-    #local_extractor = LocalVariableExtraction(st, extractor.results)
-    #local_extractor.visit(root_node)
-    #local_memory_alloc = LocalMemoryAllocation(local_extractor.results)
-    #local_memory_alloc.generate()
-    functions = Functions(st, extractor.results)
+    functions = Functions(st)
     functions.visit(root_node)
+    # fg = FunctionGenerator(functions.finalize())
+    # fg.generate()
     top_level = TopLevelProgram('tl',st)
     top_level.visit(root_node)
     ep = EntryPoint(top_level.finalize())
