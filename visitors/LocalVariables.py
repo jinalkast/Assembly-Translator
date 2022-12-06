@@ -9,22 +9,22 @@ class LocalVariableExtraction(ast.NodeVisitor):
         super().__init__()
         self.results = {}
         self.st = st
+        self.returnExists = False
 
     def visit_FunctionDef(self, node):
         local_vars = []
         parameters = [arg.arg for arg in node.args.args]
-        returnExists = False
 
         for contents in node.body:
             if isinstance(contents, ast.Assign) and contents.targets[0].id not in local_vars:
                 local_vars.append(contents.targets[0].id)
                 
             elif isinstance(contents, ast.Return):
-                returnExists = True
+                self.returnExists = True
 
         i = (len(local_vars) - 1) * 2
 
-        if returnExists:
+        if self.returnExists:
             paramIndex = i + 4
             
         else:
