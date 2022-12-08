@@ -1,11 +1,13 @@
-def my_func(a,b):
-    a = 3
-    b = 4
-    c = 12
-    d = 13
+def my_func(a):
+    a = a + 2
+    print(a)
+    b = my_funcs(a)
+    print(b)
 
-def my_funcs():
-    a = 4
-    b = 5
-    c = 6
-    d = 7
+def my_funcs(b):
+    b = b + 2
+    print(b)
+    return b
+
+x = int(input())
+my_func(x)

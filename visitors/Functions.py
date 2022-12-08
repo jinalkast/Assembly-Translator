@@ -42,7 +42,7 @@ class Functions(ast.NodeVisitor):
           local_extractor = LocalVariableExtraction(self.st)
           local_extractor.visit(node)
           self.__num_of_local_vars = len(local_extractor.local_vars)
-          self.__num_of_local_vars = len(local_extractor.parameters)
+          self.__num_of_params = len(local_extractor.parameters)
           local_memory_alloc = LocalMemoryAllocation(local_extractor.local_vars, local_extractor.parameters, self.st)
           self.printHeader(local_extractor, node)
           local_memory_alloc.generate(self.__func_count)
@@ -71,7 +71,7 @@ class Functions(ast.NodeVisitor):
           else:
                self.__instructions.append((None, f'LDWA {self.st.getLocalName(node.value.id, self.__func_count)},s'))
 
-          self.__instructions.append((None, f'STWA {self.__num_of_local_vars * 2 + self.__num_of_params * 2 + 4},s'))
+          self.__instructions.append((None, f'STWA {self.__num_of_local_vars * 2 + self.__num_of_params * 2 + 2},s'))
           self.__instructions.append((None, f'ADDSP {(self.__num_of_local_vars)*2},i'))
           self.__instructions.append((None, f'RET'))
 
@@ -127,19 +127,18 @@ class Functions(ast.NodeVisitor):
                 self.__record_instruction('STBA charOut,d')
 
             case _:
-                # function with input
-                if self.__in_assign:
-                    self.__record_instruction(f'SUBSP 2,i \t ; for retVal')
-
-                if len(node.args) > 0:
-                    counter = 0
-                    self.__record_instruction(f'SUBSP {len(node.args) * 2},i')
-                    for arg in node.args:
-                        self.__access_memory(arg, 'LDWA')
-                        self.__record_instruction(f'STWA {counter},s')
-                        counter += 2
+                # for each item argument passed in, load it
+                counter = 0
+                for arg in node.args:
+                    self.__access_memory(arg, 'LDWA')
+                    self.__record_instruction(f'SUBSP {len(node.args) * 2 + (2 if self.__in_assign else 0)},i')
+                    self.__record_instruction(f'STWA {counter},s')
+                    counter += 2
+                    self.__record_instruction(f'ADDSP {len(node.args) * 2 + (2 if self.__in_assign else 0)},i')
+               
+                # if in assign, sub 2 for retVal
+                self.__record_instruction(f'SUBSP {len(node.args) * 2 + (2 if self.__in_assign else 0)},i \t ; for retVal')
                 self.__record_instruction(f'CALL {node.func.id}')
-                    
                 if len(node.args) > 0: self.__record_instruction(f'ADDSP {len(node.args) * 2},i')
                 
                 if self.__in_assign:

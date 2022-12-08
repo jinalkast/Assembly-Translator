@@ -17,7 +17,7 @@ class LocalVariableExtraction(ast.NodeVisitor):
         parameters = [arg.arg for arg in node.args.args]
 
         for contents in node.body:
-            if isinstance(contents, ast.Assign) and contents.targets[0].id not in local_vars:
+            if isinstance(contents, ast.Assign) and contents.targets[0].id not in local_vars and contents.targets[0].id not in parameters:
                 local_vars.append(contents.targets[0].id)
                 
             elif isinstance(contents, ast.Return):
