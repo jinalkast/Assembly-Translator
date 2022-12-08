@@ -154,7 +154,7 @@ class TopLevelProgram(ast.NodeVisitor):
         else:
             self.__record_instruction(f'{inverted[type(node.test.ops[0])]} end_if_{if_id}')
        
-        # Visiting the body of the loop
+        # Visiting the body of the if statement
         for contents in node.body:
             self.visit(contents)
 
@@ -168,7 +168,7 @@ class TopLevelProgram(ast.NodeVisitor):
         for contents in node.orelse:
             self.visit(contents)
 
-        # Sentinel marker for the end of the loop
+        # Sentinel marker for the end of the if statement
         self.__record_instruction(f'NOP1', label = f'end_if_{if_id}')
 
     ####

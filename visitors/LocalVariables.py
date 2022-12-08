@@ -23,15 +23,15 @@ class LocalVariableExtraction(ast.NodeVisitor):
         # add 2 bytes for initial stack location of parameters
         paramIndex = i + 4
 
+        # map variables to associated stack location
+        for var in self.local_vars:
+            self.local_vars[var] = i
+            i -= 2
+
         # map parameters to associated stack location
         for arg in node.args.args:
             self.parameters[arg.arg] = paramIndex
             paramIndex += 2
-
-        #map variables to associated stack location
-        for var in self.local_vars:
-            self.local_vars[var] = i
-            i -= 2
 
     def visit_Assign(self, node):
         # only add to local variables if not already assigned and not a parameter
