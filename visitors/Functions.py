@@ -98,7 +98,7 @@ class Functions(ast.NodeVisitor):
     
      def visit_Name(self, node):
           if not self.__in_func: return
-          self.__record_instruction(f'LDWA {self.st.getLocalName(node.id,self.__func_count)},i')
+          self.__record_instruction(f'LDWA {self.st.getLocalName(node.id,self.__func_count)},s')
 
      def visit_BinOp(self, node):
           if not self.__in_func: return
