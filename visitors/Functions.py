@@ -48,14 +48,16 @@ class Functions(ast.NodeVisitor):
           local_memory_alloc.generate(self.__func_count)
 
           # Visiting the body of the function
-          self.__record_instruction(f'SUBSP {(self.__num_of_local_vars)*2},i', label = f'{node.name}')
+          self.__record_instruction(f'SUBSP {(self.__num_of_local_vars)*2},i\t; Push local vars', label = f'{node.name}')
           for contents in node.body:
                self.visit(contents)
 
-         
+          # if no visit return occured, we must add return here
           if not local_extractor.returnExists:
-               self.__record_instruction(f'ADDSP {(self.__num_of_local_vars)*2},i')
+               self.__record_instruction(f'ADDSP {(self.__num_of_local_vars)*2},i\t; Pop local vars')
                self.__record_instruction(f'RET')
+          
+          # Print each function after its visited for formatting
           fg = FunctionGenerator(self.finalize())
           fg.generate()
           
@@ -66,31 +68,37 @@ class Functions(ast.NodeVisitor):
 
      def visit_Return(self,node):
           if not self.__in_func: return
+
+          # Return constant
           if isinstance(node.value,ast.Constant):
                self.__instructions.append((None, f'LDWA {node.value.value},i'))
+          # anything else is stored on the stack
           else:
                self.__instructions.append((None, f'LDWA {self.st.getLocalName(node.value.id, self.__func_count)},s'))
 
+          # Loc of return val = 2*num_of_loc_vars + 2*num_of_params + 2{return value}
           self.__instructions.append((None, f'STWA {self.__num_of_local_vars * 2 + self.__num_of_params * 2 + 2},s'))
-          self.__instructions.append((None, f'ADDSP {(self.__num_of_local_vars)*2},i'))
+          
+          # pop local vars
+          self.__instructions.append((None, f'ADDSP {(self.__num_of_local_vars)*2},i\t; Pop local vars'))
+
           self.__instructions.append((None, f'RET'))
 
      def visit_Assign(self, node):
           if not self.__in_func: return
           # remembering the name of the target
           self.__current_variable = self.st.getLocalName(node.targets[0].id,self.__func_count)
-          # # visiting the left part, now knowing where to store the result
+          
+          # visiting the left part, now knowing where to store the result
           self.__in_assign = True
           self.visit(node.value)
           self.__in_assign = False
+
           if self.__should_save:
                self.__record_instruction(f'STWA {self.__current_variable},s')
           else:
                self.__should_save = True
           self.__current_variable = None
-
-          # else:
-          #      assigned[self.__current_variable] = True
 
      def visit_Constant(self, node):
           if not self.__in_func: return
@@ -130,20 +138,24 @@ class Functions(ast.NodeVisitor):
                 # for each item argument passed in, load it
                 counter = 0
                 for arg in node.args:
+                    self.__record_instruction(f'; Begin Loading {arg.value if isinstance(arg,ast.Constant) else self.st.getLocalName(arg.id,self.__func_count)} to the stack')
                     self.__access_memory(arg, 'LDWA')
+                    # When calling a function in another function, we must move the stack pointer up after loading the value
+                    # because the loc of out vars is dependant on the stack pointer
                     self.__record_instruction(f'SUBSP {len(node.args) * 2 + (2 if self.__in_assign else 0)},i')
                     self.__record_instruction(f'STWA {counter},s')
                     counter += 2
                     self.__record_instruction(f'ADDSP {len(node.args) * 2 + (2 if self.__in_assign else 0)},i')
-               
+                    self.__record_instruction(f'; Finished Loading {arg.value if isinstance(arg,ast.Constant) else self.st.getLocalName(arg.id,self.__func_count)} to the stack')
+
                 # if in assign, sub 2 for retVal
-                self.__record_instruction(f'SUBSP {len(node.args) * 2 + (2 if self.__in_assign else 0)},i \t ; for retVal')
+                self.__record_instruction(f'SUBSP {len(node.args) * 2 + (2 if self.__in_assign else 0)},i\t; Moving SP for local vars and pushing Ret Val')
                 self.__record_instruction(f'CALL {node.func.id}')
-                if len(node.args) > 0: self.__record_instruction(f'ADDSP {len(node.args) * 2},i')
+                if len(node.args) > 0: self.__record_instruction(f'ADDSP {len(node.args) * 2},i\t; Popping local vars')
                 
                 if self.__in_assign:
                     self.__record_instruction(f'LDWA 0,s')
-                    self.__record_instruction(f'ADDSP 2,i')
+                    self.__record_instruction(f'ADDSP 2,i\t; Pop ret val')
 
     ####
     ## Handling While loops (only variable OP variable)
