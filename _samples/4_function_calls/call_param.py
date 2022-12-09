@@ -1,4 +1,3 @@
-
 _UNIV = 42
 
 def my_func(value):

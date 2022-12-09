@@ -1,9 +1,14 @@
 import argparse
 import ast
 from visitors.GlobalVariables import GlobalVariableExtraction
+from visitors.LocalVariables import LocalVariableExtraction
 from visitors.TopLevelProgram import TopLevelProgram
+from visitors.Functions import Functions
 from generators.StaticMemoryAllocation import StaticMemoryAllocation
+from generators.LocalMemoryAllocation import LocalMemoryAllocation
 from generators.EntryPoint import EntryPoint
+from generators.symbolTable import SymbolTable
+from generators.FunctionGenerator import FunctionGenerator
 
 def main():
     input_file, print_ast = process_cli()
@@ -25,13 +30,21 @@ def process_cli():
 
 def process(input_file, root_node):
     print(f'; Translating {input_file}')
-    extractor = GlobalVariableExtraction()
+    
+    # Create symbol table 
+    st = SymbolTable()
+
+    extractor = GlobalVariableExtraction(st)
     extractor.visit(root_node)
     memory_alloc = StaticMemoryAllocation(extractor.results)
     print('; Branching to top level (tl) instructions')
     print('\t\tBR tl')
     memory_alloc.generate()
-    top_level = TopLevelProgram('tl')
+    functions = Functions(st)
+    functions.visit(root_node)
+    # fg = FunctionGenerator(functions.finalize())
+    # fg.generate()
+    top_level = TopLevelProgram('tl',st)
     top_level.visit(root_node)
     ep = EntryPoint(top_level.finalize())
     ep.generate() 
