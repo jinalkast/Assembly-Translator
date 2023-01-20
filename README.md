@@ -1,5 +1,5 @@
 # Assembly Translator 👨‍💻
-My personal portfolio 
+Pseudo-compiler to translate Python code into PEP/9 assembly language
 
 <!-- How to use -->
 ## Instructions 📋
@@ -13,4 +13,4 @@ Made in Python using Visual Studio Code
 <!-- Creds -->
 ## Notes 📝 ##
 
-Worked alongside Lab Partner: [Maged Armanios](https://github.com/marmanios)
+Worked alongside lab partner: [Maged Armanios](https://github.com/marmanios)
