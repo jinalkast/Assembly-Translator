@@ -3,7 +3,7 @@ Pseudo-compiler to translate Python code into PEP/9 assembly language
 
 <!-- How to use -->
 ## Instructions 📋
-Run translator using <code>translator.py --f \[sample.py\]</code>
+Run translator using <code>python translator.py --f \[sample.py\]</code>
 
 <!-- Tools -->
 ## Tools 🛠 ##
