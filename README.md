@@ -1,9 +1,9 @@
-# Assembly Translator :code:
+# Assembly Translator 👨‍💻
 My personal portfolio 
 
 <!-- How to use -->
 ## Instructions 📋
-Visit [jinalk.netlify.app](https://jinalk.netlify.app)
+Run translator using <code>translator.py --f \[sample.py\]</code>
 
 <!-- Tools -->
 ## Tools 🛠 ##
