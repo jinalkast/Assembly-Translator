@@ -1,9 +1,9 @@
-# Assembly Translator 📦
-Project to implement and analyze bin-packing algorithms on given inputs
+# Assembly Translator 👨‍💻
+Pseudo-compiler to translate Python code into PEP/9 assembly language
 
 <!-- How to use -->
 ## Instructions 📋
-View [report](report.ipynb)
+Run translator using <code>python translator.py --f \[sample.py\]</code>
 
 <!-- Tools -->
 ## Tools 🛠 ##
